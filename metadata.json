@@ -1,0 +1,7 @@
+{
+  "name": "甘有影",
+  "description": "An all-in-one movie information platform providing the fastest and most accurate movie showtime search service in Taiwan, solving the hassle of switching between multiple cinema websites.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

@@ -1,0 +1,23 @@
+# wrangler.toml
+name = "gan-woo-ya-api"
+main = "src/index.ts"
+compatibility_date = "2024-06-01"
+# 使用 'nodejs_compat' 讓一些 Node.js 內建模組（如 'path'）可以運行
+compatibility_flags = ["nodejs_compat"] 
+
+# 部署環境設定 (例如 staging, production)
+[env.production]
+# 專案部署 ID
+name = "gan-woo-ya-prod"
+
+# --- 資料庫設定 ---
+# 這是您的 D1 資料庫繫結名稱。在您的 Worker 程式碼中會使用這個名稱 (env.DB) 來存取資料庫。
+[[d1_databases]]
+binding = "DB"
+database_name = "movie_showtimes_db"
+# 確保您已經在 Cloudflare 儀表板上建立好這個資料庫
+database_id = "dc77de87-2fa7-403a-a0ec-31209f2eae1e" 
+
+# --- 定時排程設定 (每天凌晨 12 點執行爬蟲) ---
+[triggers]
+crons = ["0 0 * * *"]

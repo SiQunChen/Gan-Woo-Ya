@@ -222,15 +222,14 @@ const fetchEvents = async (db: D1Database, whereClause: string, bindings: unknow
         movieId: row.movieSourceId, 
         theaterId: row.theaterSourceId,
         showtime: {
-            source_id: row.showtimeId,
-            // MODIFIED: 回傳 source_id
+            id: row.showtimeId,
             movieId: row.movieSourceId,
             theaterId: row.theaterSourceId,
+            bookingUrl: row.showtimeBookingUrl, // NEW
             time: row.showtimeTime,
             screenType: row.showtimeScreenType,
             language: row.showtimeLanguage,
             price: row.showtimePrice,
-            bookingUrl: row.showtimeBookingUrl, // NEW
         },
         organizer: {
             userId: row.organizerUserId,
@@ -572,30 +571,34 @@ const router = async (request: Request, env: Env): Promise<Response> => {
                 return jsonResponse({ error: 'Movie not found' }, 404);
             }
 
-            const review: Review & { movieId: number } = { // 內部使用數字 id
-                ...body,
-                movieId: movie.id, // 儲存數字 id
-                id: crypto.randomUUID(),
-                createdAt: new Date().toISOString(),
-            };
+            const reviewId = crypto.randomUUID();
+            const createdAt = new Date().toISOString();
 
             await env.DB
                 .prepare(
                     'INSERT INTO Reviews (id, movieId, userId, username, rating, comment, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
                 )
                 .bind(
-                    review.id,
-                    review.movieId, // 插入數字 id
-                    review.userId,
-                    review.username,
-                    review.rating,
-                    review.comment,
-                    review.createdAt,
+                    reviewId,
+                    movie.id,
+                    body.userId,
+                    body.username,
+                    body.rating,
+                    body.comment,
+                    createdAt,
                 )
                 .run();
             
             // 回傳時，把數字 id 換回 source_id
-            const responseReview: Review = { ...review, movieId: body.movieId };
+            const responseReview: Review = {
+                id: reviewId,
+                movieId: body.movieId,
+                userId: body.userId,
+                username: body.username,
+                rating: body.rating,
+                comment: body.comment,
+                createdAt,
+            };
             return jsonResponse(responseReview, 201);
         }
 

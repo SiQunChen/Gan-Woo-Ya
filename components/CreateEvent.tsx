@@ -30,20 +30,20 @@ const CreateEvent: React.FC<CreateEventProps> = ({ movie, onEventCreated, onCanc
   useEffect(() => {
     const fetchShowtimes = async () => {
       setLoading(true);
-      const fetchedShowtimes = await getShowtimesByMovieId(movie.id);
+      const fetchedShowtimes = await getShowtimesByMovieId(movie.source_id);
       const theaterIds = [...new Set(fetchedShowtimes.map(s => s.theaterId))];
       const fetchedTheaters = await getTheatersByIds(theaterIds);
       
       const grouped = fetchedTheaters.map(theater => ({
         theater,
-        showtimes: fetchedShowtimes.filter(s => s.theaterId === theater.id).sort((a,b) => a.time.localeCompare(b.time)),
+        showtimes: fetchedShowtimes.filter(s => s.theaterId === theater.source_id).sort((a,b) => a.time.localeCompare(b.time)),
       })).filter(group => group.showtimes.length > 0);
 
       setShowtimesByTheater(grouped);
       setLoading(false);
     };
     fetchShowtimes();
-  }, [movie.id]);
+  }, [movie.source_id]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -82,9 +82,9 @@ const CreateEvent: React.FC<CreateEventProps> = ({ movie, onEventCreated, onCanc
     }
 
     try {
-        const newEvent = await createMovieBuddyEvent({
-            movieId: movie.id,
-            theaterId: selectedTheater.id,
+    const newEvent = await createMovieBuddyEvent({
+      movieId: movie.source_id,
+      theaterId: selectedTheater.source_id,
             showtime: selectedShowtime,
             organizer: {
                 userId: user.id,

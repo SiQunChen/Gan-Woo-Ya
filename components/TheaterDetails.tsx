@@ -1,27 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Theater, Showtime, Movie } from '../types';
 import { getShowtimesByTheaterId, getMoviesByIds } from '../services/api';
 import Spinner from './Spinner';
 import { LocationIcon, HeartIcon } from './Icons';
 import { useUser } from '../contexts/UserContext';
+import ShowtimeItem from './ShowtimeItem';
+import { getDateKey, formatDateLabel } from '../utils/showtime';
 
 interface TheaterDetailsProps {
   theater: Theater;
   onSelectMovie: (movie: Movie) => void;
 }
 
+const dateSelectClass =
+  "bg-gray-700 border-2 border-gray-700 text-gray-200 rounded-full py-2 px-4 focus:outline-none focus:ring-2 focus:ring-cyan-500 w-full md:w-auto";
+
 const TheaterDetails: React.FC<TheaterDetailsProps> = ({ theater, onSelectMovie }) => {
   const [showtimes, setShowtimes] = useState<Showtime[]>([]);
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const { user, isFavoriteTheater, toggleFavoriteTheater } = useUser();
-
-  const isFavorite = user ? isFavoriteTheater(theater.id) : false;
+  const theaterSourceId = theater.source_id;
+  const isFavorite = user ? isFavoriteTheater(theaterSourceId) : false;
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const fetchedShowtimes = await getShowtimesByTheaterId(theater.id);
+  const fetchedShowtimes = await getShowtimesByTheaterId(theaterSourceId);
       const movieIds = [...new Set(fetchedShowtimes.map(s => s.movieId))];
       const fetchedMovies = await getMoviesByIds(movieIds);
       setShowtimes(fetchedShowtimes);
@@ -29,20 +35,55 @@ const TheaterDetails: React.FC<TheaterDetailsProps> = ({ theater, onSelectMovie 
       setLoading(false);
     };
     fetchData();
-  }, [theater.id]);
+  }, [theaterSourceId]);
 
   const handleToggleFavorite = () => {
     if (user) {
-      toggleFavoriteTheater(theater.id);
+  toggleFavoriteTheater(theaterSourceId);
     } else {
       alert('請先登入才能將影城加入最愛！');
     }
   };
   
-  const moviesWithShowtimes = movies.map(movie => ({
-      ...movie,
-      showtimes: showtimes.filter(s => s.movieId === movie.id).sort((a,b) => a.time.localeCompare(b.time)),
-  })).filter(m => m.showtimes.length > 0);
+  const dateOptions = useMemo(() => {
+    const uniqueDates = Array.from(
+      new Set(
+        showtimes
+          .map(s => getDateKey(s.time))
+          .filter((value): value is string => Boolean(value))
+      )
+    ) as string[];
+    uniqueDates.sort();
+    return uniqueDates.map(value => ({ value, label: formatDateLabel(value) }));
+  }, [showtimes]);
+
+  useEffect(() => {
+    if (dateOptions.length === 0) {
+      setSelectedDate('');
+      return;
+    }
+    if (!dateOptions.some(option => option.value === selectedDate)) {
+      setSelectedDate(dateOptions[0].value);
+    }
+  }, [dateOptions, selectedDate]);
+
+  const filteredShowtimes = useMemo(() => {
+    return showtimes.filter(showtime => {
+      const dateKey = getDateKey(showtime.time);
+      return !selectedDate || dateKey === selectedDate;
+    });
+  }, [showtimes, selectedDate]);
+
+  const moviesWithShowtimes = useMemo(() => {
+    return movies
+      .map(movie => ({
+        ...movie,
+        showtimes: filteredShowtimes
+          .filter(s => s.movieId === movie.source_id)
+          .sort((a, b) => a.time.localeCompare(b.time)),
+      }))
+      .filter(m => m.showtimes.length > 0);
+  }, [movies, filteredShowtimes]);
 
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(theater.address)}`;
 
@@ -71,7 +112,33 @@ const TheaterDetails: React.FC<TheaterDetailsProps> = ({ theater, onSelectMovie 
         </div>
       </div>
       
-      <h2 className="text-3xl font-bold mb-4">今日時刻表</h2>
+      <div className="mb-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-3xl font-bold">場次時刻表</h2>
+            {selectedDate && (
+              <p className="text-gray-400 mt-1">{formatDateLabel(selectedDate)}</p>
+            )}
+          </div>
+          {dateOptions.length > 0 && (
+            <div className="w-full md:w-auto flex items-center gap-3">
+              <label className="font-semibold text-white" htmlFor="theater-date-select">日期:</label>
+              <select
+                id="theater-date-select"
+                className={dateSelectClass}
+                value={selectedDate}
+                onChange={e => setSelectedDate(e.target.value)}
+              >
+                {dateOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      </div>
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
@@ -79,7 +146,8 @@ const TheaterDetails: React.FC<TheaterDetailsProps> = ({ theater, onSelectMovie 
         </div>
       ) : (
         <div className="space-y-8">
-            {moviesWithShowtimes.map(movie => (
+            {moviesWithShowtimes.length > 0 ? (
+              moviesWithShowtimes.map(movie => (
                 <div key={movie.id} className="flex flex-col md:flex-row gap-6 bg-gray-800/50 p-4 rounded-lg">
                     <div className="md:w-1/5 flex-shrink-0">
                        <img 
@@ -99,29 +167,18 @@ const TheaterDetails: React.FC<TheaterDetailsProps> = ({ theater, onSelectMovie 
                             <h4 className="font-semibold text-lg mb-2">場次</h4>
                             <div className="flex flex-wrap gap-2">
                             {movie.showtimes.map(showtime => (
-                                <a
-                                    key={showtime.id}
-                                    href={theater.bookingUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="group relative flex flex-col items-center justify-center w-28 h-24 bg-gray-700 text-white rounded-md hover:bg-cyan-600 transition-colors duration-200 text-center p-1"
-                                >
-                                    <span className="text-xl font-bold">{showtime.time}</span>
-                                     <div className="mt-1">
-                                        <span className="font-bold text-base">
-                                            ${showtime.price}
-                                        </span>
-                                    </div>
-                                    <div className="text-xs text-gray-400 group-hover:text-white mt-1">
-                                      {showtime.language.slice(0,1)} / {showtime.screenType}
-                                    </div>
-                                </a>
+                              <ShowtimeItem key={showtime.id} showtime={showtime} />
                             ))}
                             </div>
                         </div>
                     </div>
                 </div>
-            ))}
+            ))
+          ) : (
+            <div className="text-center py-10 text-gray-400">
+              <p>該日期沒有場次，請選擇其他日期。</p>
+            </div>
+          )}
         </div>
       )}
     </div>

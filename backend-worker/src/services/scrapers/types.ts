@@ -1,22 +1,50 @@
-// 在 types.ts (或 services/scrapers/types.ts) 中
-import { Movie, Theater, Showtime } from '../../../../types'; // 沿用你現有的
- 
-// 定義爬蟲成功時應回傳的資料包
-export interface IScraperResult {
-    movies: Movie[];
-    theaters: Theater[];
-    showtimes: Showtime[];
+// 檔案位置: services/scrapers/types.ts
+
+// 爬蟲傳來的 Movie 物件 (沒有數字 id)
+export interface ScraperMovie {
+  source_id: string; // "vieshow_8366"
+  title: string;
+  englishTitle: string;
+  posterUrl: string;
+  synopsis: string;
+  director: string;
+  actors: string[];
+  duration: number;
+  rating: string;
+  trailerUrl: string;
+  releaseDate: string;
+  bookingOpen: boolean;
+  genres: string[];
 }
- 
-// 定義一個「爬蟲」必須具備的能力
-export interface IScraper {
-    /**
-     * 爬蟲的唯一名稱 (例如 'Vieshow', 'Ambassador')
-     */
-    name: string;
- 
-    /**
-     * 執行爬蟲，抓取電影、影城和場次資料
-     */
-    scrape: () => Promise<IScraperResult>;
+
+// 爬蟲傳來的 Theater 物件 (沒有數字 id)
+export interface ScraperTheater {
+  source_id: string; // "vieshow_1"
+  name: string;
+  address: string;
+  region: string;
+  websiteUrl: string;
+  location: {
+    lat: number;
+    lng: number;
+  };
+}
+
+// 爬蟲傳來的 Showtime 物件 (id, movieId, theaterId 都是字串)
+export interface ScraperShowtime {
+  source_id: string;
+  movieId: string; // Movie source_id (e.g., "vieshow_8366")
+  theaterId: string; // Theater source_id (e.g., "vieshow_1")
+  bookingUrl: string;
+  time: string; // ISO String
+  screenType: string; // "General", "IMAX" (讓 worker 處理)
+  language: string; // "Chinese", "English" (讓 worker 處理)
+  price: number;
+}
+
+// 這是 index.ts 真正使用的根 interface
+export interface IScraperResult {
+  movies: ScraperMovie[];
+  theaters: ScraperTheater[];
+  showtimes: ScraperShowtime[];
 }

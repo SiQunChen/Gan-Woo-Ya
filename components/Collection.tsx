@@ -81,7 +81,7 @@ const Collection: React.FC<CollectionProps> = ({ onSelectMovie, onSelectTheater,
             const fetchedEvents = await getMovieBuddyEventsByIds(eventIds);
             const movieIds = [...new Set(fetchedEvents.map(e => e.movieId))];
             const movies = await getMoviesByIds(movieIds);
-            const moviesMap = new Map(movies.map(m => [m.id, m]));
+            const moviesMap = new Map(movies.map(m => [m.source_id, m]));
             
             const eventsWithMovies = fetchedEvents
                 .map(event => ({ ...event, movie: moviesMap.get(event.movieId)!}))

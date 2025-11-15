@@ -1,25 +1,28 @@
 export interface Movie {
-  id: string;
+  id: number; 
+  source_id: string; 
   title: string;
   englishTitle: string;
   posterUrl:string;
   synopsis: string;
   director: string;
   actors: string[];
-  duration: number; // in minutes
+  duration: number; 
   rating: string;
   trailerUrl: string;
-  releaseDate: string; // YYYY-MM-DD
+  releaseDate: string; 
   bookingOpen: boolean;
   genres: string[];
 }
 
 export interface Theater {
-  id: string;
+  id: number; 
+  source_id: string; 
   name: string;
   address: string;
   region: string;
-  bookingUrl: string;
+  city?: string;
+  websiteUrl: string;
   location: {
     lat: number;
     lng: number;
@@ -27,10 +30,11 @@ export interface Theater {
 }
 
 export interface Showtime {
-  id:string;
+  id: string;
   movieId: string;
   theaterId: string;
-  time: string; // "HH:mm" format
+  bookingUrl: string;
+  time: string; 
   screenType: 'IMAX' | '4DX' | 'Dolby Cinema' | 'General' | 'TITAN';
   language: 'English' | 'Chinese' | 'Japanese' | 'Korean';
   price: number;
@@ -95,4 +99,4 @@ export enum View {
 }
 
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'late-night';
-export type PriceSort = 'default' | 'asc';
+export type PriceSort = 'distance' | 'time' | 'price';

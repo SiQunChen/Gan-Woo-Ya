@@ -9,6 +9,7 @@ import StarRating from './StarRating';
 import ReviewList from './ReviewList';
 import ReviewForm from './ReviewForm';
 import MovieBuddyEventCard from './MovieBuddyEventCard';
+import { getRatingInfo } from '../utils/ratings';
 
 // Helper: normalize various YouTube URL forms to an embed URL.
 const getYouTubeEmbedUrl = (url?: string) => {
@@ -60,17 +61,20 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onSelectTheater, onS
   const [events, setEvents] = useState<MovieBuddyEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [notified, setNotified] = useState(false);
+  const [isSynopsisExpanded, setSynopsisExpanded] = useState(false);
   const { user, isInWatchlist, toggleWatchlist, isCollectedMovie, toggleCollectedMovie, login } = useUser();
 
-  const inWatchlist = user ? isInWatchlist(movie.id) : false;
-  const isCollected = user ? isCollectedMovie(movie.id) : false;
+  const movieSourceId = movie.source_id;
+  const ratingInfo = getRatingInfo(movie.rating);
+  const inWatchlist = user ? isInWatchlist(movieSourceId) : false;
+  const isCollected = user ? isCollectedMovie(movieSourceId) : false;
 
   const fetchMovieData = useCallback(async () => {
       setLoading(true);
-      const [fetchedShowtimes, fetchedReviews, fetchedEvents] = await Promise.all([
-          getShowtimesByMovieId(movie.id),
-          getReviewsByMovieId(movie.id),
-          getMovieBuddyEventsByMovieId(movie.id),
+    const [fetchedShowtimes, fetchedReviews, fetchedEvents] = await Promise.all([
+      getShowtimesByMovieId(movieSourceId),
+      getReviewsByMovieId(movieSourceId),
+      getMovieBuddyEventsByMovieId(movieSourceId),
       ]);
       const theaterIds = [...new Set(fetchedShowtimes.map(s => s.theaterId))];
       const fetchedTheaters = await getTheatersByIds(theaterIds);
@@ -80,7 +84,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onSelectTheater, onS
       setReviews(fetchedReviews);
       setEvents(fetchedEvents);
       setLoading(false);
-  }, [movie.id]);
+  }, [movieSourceId]);
 
   useEffect(() => {
     fetchMovieData();
@@ -88,7 +92,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onSelectTheater, onS
 
   const handleToggleWatchlist = () => {
     if (user) {
-      toggleWatchlist(movie.id);
+  toggleWatchlist(movieSourceId);
     } else {
       alert("請先登入才能將電影加入待看清單！");
       login();
@@ -97,7 +101,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onSelectTheater, onS
 
   const handleToggleCollected = () => {
       if(user) {
-          toggleCollectedMovie(movie.id);
+          toggleCollectedMovie(movieSourceId);
       } else {
           alert("請先登入才能收藏電影！");
           login();
@@ -111,7 +115,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onSelectTheater, onS
 
   const handleReviewSubmit = async (rating: number, comment: string) => {
     if (user && comment) {
-        await addReview({ movieId: movie.id, userId: user.id, username: user.name, rating, comment });
+        await addReview({ movieId: movieSourceId, userId: user.id, username: user.name, rating, comment });
         fetchMovieData(); // Re-fetch reviews
     }
   };
@@ -134,7 +138,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onSelectTheater, onS
   return (
     <div className="space-y-12">
       <div className="flex flex-col md:flex-row gap-8">
-        <div className="md:w-1/3 flex-shrink-0 flex flex-col justify-end">
+        <div className="md:w-1/3 flex-shrink-0 flex flex-col justify-center">
           <img src={movie.posterUrl} alt={movie.title} className="w-full rounded-lg shadow-lg" />
         </div>
         <div className="md:w-2/3 flex flex-col">
@@ -163,22 +167,56 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onSelectTheater, onS
               <ClockIcon className="w-5 h-5 mr-1" />
               <span>{movie.duration} 分鐘</span>
             </div>
-            <div className="flex items-center">
-              <RatingIcon className="w-5 h-5 mr-1" />
-              <span>{movie.rating}</span>
+            <div className="flex items-center text-sm text-gray-200">
+              <RatingIcon className="w-5 h-5 mr-2 flex-shrink-0" />
+              <div className="flex flex-col items-start text-left leading-tight">
+                <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold tracking-wide uppercase ${ratingInfo.badgeClass}`}>
+                  {ratingInfo.shortLabel} / {ratingInfo.code}
+                </span>
+                <span className="text-xs text-gray-400 mt-0.5">{ratingInfo.rule}</span>
+              </div>
             </div>
           </div>
 
-          <p className="text-gray-300 leading-relaxed">{movie.synopsis}</p>
+          {movie.synopsis && (
+            <div className="mt-2">
+              <div
+                className={`relative text-gray-300 leading-relaxed transition-all duration-300 ${
+                  isSynopsisExpanded ? '' : 'max-h-24 overflow-hidden pr-2'
+                }`}
+              >
+                <p>{movie.synopsis}</p>
+                {!isSynopsisExpanded && movie.synopsis.length > 220 && (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-gray-900 via-gray-900/70 to-transparent" />
+                )}
+              </div>
+              {movie.synopsis.length > 220 && (
+                <button
+                  type="button"
+                  onClick={() => setSynopsisExpanded(prev => !prev)}
+                  className="mt-3 text-cyan-400 font-semibold hover:text-cyan-300 transition-colors"
+                  aria-expanded={isSynopsisExpanded}
+                >
+                  {isSynopsisExpanded ? '收合簡介 ▲' : '閱讀更多 ▼'}
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="mt-6 space-y-3 text-gray-300">
             <div className="flex items-start">
               <DirectorIcon className="w-5 h-5 mt-1 mr-2 flex-shrink-0 text-cyan-400" />
-              <strong>導演：</strong><span className="ml-2">{movie.director}</span>
+              <div className="flex flex-wrap gap-2 text-gray-300">
+                <strong className="whitespace-nowrap">導演：</strong>
+                <span>{movie.director}</span>
+              </div>
             </div>
             <div className="flex items-start">
               <ActorsIcon className="w-5 h-5 mt-1 mr-2 flex-shrink-0 text-cyan-400" />
-              <strong>演員：</strong><span className="ml-2">{movie.actors.join('、')}</span>
+              <div className="flex flex-1 flex-wrap gap-2 text-gray-300 min-w-0">
+                <strong className="whitespace-nowrap">演員：</strong>
+                <span className="flex-1 min-w-0 leading-relaxed">{movie.actors.join('、')}</span>
+              </div>
             </div>
           </div>
             

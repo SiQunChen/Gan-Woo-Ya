@@ -1,8 +1,30 @@
 import { Movie, Theater, Showtime, Review, MovieBuddyEvent } from '../types';
 
-// TODO: 請將此變數替換為您部署後的 Cloudflare Worker URL
-// 例如: 'https://gan-woo-ya-api.your-username.workers.dev'
-const API_BASE_URL = 'http://localhost:8787/api'; 
+const DEFAULT_API_BASE_URL = 'http://localhost:8787/api';
+const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
+const API_BASE_URL = normalizeApiBaseUrl(RAW_API_BASE_URL);
+
+function normalizeApiBaseUrl(url: string): string {
+    const trimmed = url.trim();
+    if (!trimmed) {
+        return DEFAULT_API_BASE_URL;
+    }
+
+    try {
+        const parsed = new URL(trimmed);
+        if (parsed.pathname === '' || parsed.pathname === '/') {
+            parsed.pathname = '/api';
+        }
+        // 移除結尾的斜線，避免重複 //
+        return parsed.toString().replace(/\/$/, '');
+    } catch {
+        const withoutTrailingSlash = trimmed.replace(/\/$/, '');
+        if (withoutTrailingSlash.endsWith('/api')) {
+            return withoutTrailingSlash;
+        }
+        return `${withoutTrailingSlash}/api`;
+    }
+}
 
 const FAKE_DELAY = 100; // 模擬延遲，用於本地開發測試
 
@@ -33,9 +55,71 @@ const transformMovie = (dbMovie: any): Movie => ({
     bookingOpen: dbMovie.bookingOpen === 1,
 });
 
-const transformTheater = (dbTheater: any): Theater => ({
-    ...dbTheater,
-    location: { lat: dbTheater.lat, lng: dbTheater.lng },
+const REGION_CITY_MAP: Record<string, string[]> = {
+    '北部': ['台北市', '臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '宜蘭縣'],
+    '中部': ['台中市', '臺中市', '彰化縣', '南投縣', '雲林縣', '苗栗縣'],
+    '南部': ['台南市', '臺南市', '高雄市', '嘉義市', '嘉義縣', '屏東縣'],
+    '東部': ['花蓮縣', '台東縣', '臺東縣'],
+    '離島': ['澎湖縣', '金門縣', '連江縣', '馬祖縣'],
+};
+
+function mapCityToRegion(city?: string | null): string {
+    if (!city) {
+        return '北部';
+    }
+    const normalized = city.replace(/臺/g, '台').trim();
+    for (const [region, cities] of Object.entries(REGION_CITY_MAP)) {
+        if (cities.includes(normalized)) {
+            return region;
+        }
+    }
+    return '北部';
+}
+
+const transformTheater = (dbTheater: any): Theater => {
+    const city = dbTheater.region ?? '';
+    return {
+        ...dbTheater,
+        city,
+        region: mapCityToRegion(city),
+        location: { lat: dbTheater.lat, lng: dbTheater.lng },
+    };
+};
+
+const transformShowtime = (row: any): Showtime => {
+    const id = row?.id ?? row?.source_id ?? row?.showtimeId;
+    const movieId = row?.movieId ?? row?.movieSourceId;
+    const theaterId = row?.theaterId ?? row?.theaterSourceId;
+    if (!id || !movieId || !theaterId) {
+        throw new Error('Invalid showtime payload: missing id/movieId/theaterId');
+    }
+    return {
+        id: String(id),
+        movieId: String(movieId),
+        theaterId: String(theaterId),
+        bookingUrl: row.bookingUrl ?? row.showtimeBookingUrl ?? '',
+        time: row.time ?? row.showtimeTime ?? '',
+        screenType: row.screenType ?? row.showtimeScreenType ?? 'General',
+        language: row.language ?? row.showtimeLanguage ?? 'Chinese',
+        price: Number(row.price ?? row.showtimePrice ?? 0),
+    };
+};
+
+const transformEvent = (event: any): MovieBuddyEvent => ({
+    ...event,
+    movieId: String(event.movieId ?? event.movieSourceId ?? ''),
+    theaterId: String(event.theaterId ?? event.theaterSourceId ?? ''),
+    showtime: transformShowtime(event.showtime ?? {
+        id: event.showtimeId,
+        movieId: event.movieSourceId ?? event.movieId,
+        theaterId: event.theaterSourceId ?? event.theaterId,
+        bookingUrl: event.showtimeBookingUrl,
+        time: event.showtimeTime,
+        screenType: event.showtimeScreenType,
+        language: event.showtimeLanguage,
+        price: event.showtimePrice,
+    }),
+    participants: event.participants ?? [],
 });
 
 // --- API 函數實作 (改為呼叫 Worker) ---
@@ -65,13 +149,13 @@ export const getTheaterById = async (id: string): Promise<Theater | undefined> =
 };
 
 export const getShowtimesByMovieId = async (movieId: string): Promise<Showtime[]> => {
-    // 這是 Worker 已經實作的路由範例
-    return await fetchApi<Showtime[]>(`/showtimes/movie/${movieId}`);
+    const dbShowtimes = await fetchApi<any[]>(`/showtimes/movie/${movieId}`);
+    return dbShowtimes.map(transformShowtime);
 };
 
 export const getShowtimesByTheaterId = async (theaterId: string): Promise<Showtime[]> => {
-    // 範例：呼叫 Worker 實作的路由
-    return await fetchApi<Showtime[]>(`/showtimes/theater/${theaterId}`);
+    const dbShowtimes = await fetchApi<any[]>(`/showtimes/theater/${theaterId}`);
+    return dbShowtimes.map(transformShowtime);
 };
 
 export const getAllTheaters = async (): Promise<Theater[]> => {
@@ -90,7 +174,8 @@ export const getTheatersByIds = async (ids: string[]): Promise<Theater[]> => {
 };
 
 export const getReviewsByMovieId = async (movieId: string): Promise<Review[]> => {
-    return fetchApi<Review[]>(`/reviews/movie/${movieId}`);
+    const reviews = await fetchApi<Review[]>(`/reviews/movie/${movieId}`);
+    return reviews.map(review => ({ ...review, movieId }));
 };
 
 export const addReview = async (review: Omit<Review, 'id' | 'createdAt'>): Promise<Review> => {
@@ -105,12 +190,13 @@ export const addReview = async (review: Omit<Review, 'id' | 'createdAt'>): Promi
 };
 
 export const getMovieBuddyEventsByMovieId = async (movieId: string): Promise<MovieBuddyEvent[]> => {
-    return fetchApi<MovieBuddyEvent[]>(`/movie-buddy-events/movie/${movieId}`);
+    const events = await fetchApi<any[]>(`/movie-buddy-events/movie/${movieId}`);
+    return events.map(transformEvent);
 };
 
 export const getMovieBuddyEventById = async (eventId: string): Promise<MovieBuddyEvent | undefined> => {
-    const event = await fetchApi<MovieBuddyEvent | null>(`/movie-buddy-events/${eventId}`);
-    return event ?? undefined;
+    const event = await fetchApi<any | null>(`/movie-buddy-events/${eventId}`);
+    return event ? transformEvent(event) : undefined;
 };
 
 export const getMovieBuddyEventsByIds = async (eventIds: string[]): Promise<MovieBuddyEvent[]> => {
@@ -118,11 +204,12 @@ export const getMovieBuddyEventsByIds = async (eventIds: string[]): Promise<Movi
         return [];
     }
     const uniqueIds = Array.from(new Set(eventIds));
-    return fetchApi<MovieBuddyEvent[]>(`/movie-buddy-events?ids=${uniqueIds.join(',')}`);
+    const events = await fetchApi<any[]>(`/movie-buddy-events?ids=${uniqueIds.join(',')}`);
+    return events.map(transformEvent);
 };
 
 export const createMovieBuddyEvent = async (eventData: Omit<MovieBuddyEvent, 'id' | 'participants' | 'status' | 'createdAt'>): Promise<MovieBuddyEvent> => {
-    return fetchApi<MovieBuddyEvent>(
+    const event = await fetchApi<any>(
         `/movie-buddy-events`,
         {
             method: 'POST',
@@ -130,4 +217,5 @@ export const createMovieBuddyEvent = async (eventData: Omit<MovieBuddyEvent, 'id
             body: JSON.stringify(eventData),
         },
     );
+    return transformEvent(event);
 };

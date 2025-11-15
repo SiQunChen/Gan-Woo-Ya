@@ -21,9 +21,38 @@ const Home: React.FC<HomeProps> = ({ onSearch, onShowNearby, onSelectMovie }) =>
     const fetchMovies = async () => {
       setLoading(true);
       const allMovies = await getAllMovies();
-      const today = new Date().toISOString().split('T')[0];
-      setNowPlayingMovies(allMovies.filter(m => m.releaseDate <= today && m.bookingOpen));
-      setUpcomingMovies(allMovies.filter(m => m.releaseDate > today || !m.bookingOpen));
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const parseReleaseDate = (value?: string): Date | null => {
+        if (!value) {
+          return null;
+        }
+        const normalized = value.replace(/\./g, '-').replace(/\//g, '-');
+        const date = new Date(normalized);
+        if (Number.isNaN(date.getTime())) {
+          return null;
+        }
+        date.setHours(0, 0, 0, 0);
+        return date;
+      };
+
+      const nowPlaying: Movie[] = [];
+      const upcoming: Movie[] = [];
+
+      allMovies.forEach(movie => {
+        const releaseDate = parseReleaseDate(movie.releaseDate);
+        const isUpcoming = releaseDate ? releaseDate > today : !movie.bookingOpen;
+        if (isUpcoming) {
+          upcoming.push(movie);
+        } else {
+          nowPlaying.push(movie);
+        }
+      });
+
+      setNowPlayingMovies(nowPlaying);
+      setUpcomingMovies(upcoming);
       setLoading(false);
     }
     fetchMovies();

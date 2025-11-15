@@ -1,23 +1,33 @@
 # wrangler.toml
-name = "gan-woo-ya-api"
+
+# 1. 加上一個「頂層」的名稱，當作 "專案群組"
+name = "gan-woo-ya"
+
 main = "src/index.ts"
 compatibility_date = "2024-06-01"
-# 使用 'nodejs_compat' 讓一些 Node.js 內建模組（如 'path'）可以運行
 compatibility_flags = ["nodejs_compat"] 
 
-# 部署環境設定 (例如 staging, production)
+# --- 正式環境 [production] ---
 [env.production]
-# 專案部署 ID
-name = "gan-woo-ya-prod"
+# 2. 這裡的 name 會覆蓋頂層的 name
+#    最終的 Worker 名稱會是 "gan-woo-ya-api"
+name = "gan-woo-ya-api" 
 
-# --- 資料庫設定 ---
-# 這是您的 D1 資料庫繫結名稱。在您的 Worker 程式碼中會使用這個名稱 (env.DB) 來存取資料庫。
-[[d1_databases]]
+[[env.production.d1_databases]]
 binding = "DB"
 database_name = "movie_showtimes_db"
-# 確保您已經在 Cloudflare 儀表板上建立好這個資料庫
 database_id = "dc77de87-2fa7-403a-a0ec-31209f2eae1e" 
 
-# --- 定時排程設定 (每天凌晨 12 點執行爬蟲) ---
-[triggers]
-crons = ["0 0 * * *"]
+# --- 本地開發環境 [dev] ---
+[env.dev]
+# 3. (可選) 也可以幫 dev 加上 name
+name = "gan-woo-ya-dev"
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "movie_showtimes_db"
+database_id = "dc77de87-2fa7-403a-a0ec-31209f2eae1e"
+preview_database_id = "movie_showtimes_db"
+
+[env.dev.vars]
+SCRAPER_SECRET = "+Bi7M08gf-_W"

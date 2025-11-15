@@ -91,7 +91,7 @@ const AiSearchResults: React.FC<AiSearchResultsProps> = ({ query, onSelectMovie,
 
                     // 3. Find showtimes and theaters
                     setStatus('正在尋找場次...');
-                    const showtimes = await getShowtimesByMovieId(targetMovie.id);
+                    const showtimes = await getShowtimesByMovieId(targetMovie.source_id);
                     if (showtimes.length === 0) {
                         setError(`目前沒有「${targetMovie.title}」的上映場次。`);
                         setLoading(false);

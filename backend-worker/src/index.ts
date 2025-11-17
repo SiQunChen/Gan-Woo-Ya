@@ -39,6 +39,49 @@ const jsonResponse = (payload: unknown, status = 200): Response =>
         headers: { 'Content-Type': 'application/json' },
     });
 
+const SQLITE_VARIABLE_LIMIT = 999;
+const SAFE_IN_CLAUSE_CHUNK = Math.floor(SQLITE_VARIABLE_LIMIT * 0.9);
+
+const chunkArray = <T>(items: T[], chunkSize: number): T[][] => {
+    if (chunkSize <= 0) return [items];
+    const chunks: T[][] = [];
+    for (let i = 0; i < items.length; i += chunkSize) {
+        chunks.push(items.slice(i, i + chunkSize));
+    }
+    return chunks;
+};
+
+const buildPlaceholders = (count: number) => new Array(count).fill('?').join(',');
+
+const fetchSourceIdMap = async (
+    db: D1Database,
+    table: 'Movies' | 'Theaters',
+    sourceIds: string[],
+): Promise<Map<string, number>> => {
+    const map = new Map<string, number>();
+    if (sourceIds.length === 0) return map;
+
+    for (const chunk of chunkArray(sourceIds, SAFE_IN_CLAUSE_CHUNK)) {
+        const placeholders = buildPlaceholders(chunk.length);
+        const { results } = await db
+            .prepare(`SELECT id, source_id FROM ${table} WHERE source_id IN (${placeholders})`)
+            .bind(...chunk)
+            .all<{ id: number; source_id: string }>();
+        results?.forEach(row => map.set(row.source_id, row.id));
+    }
+
+    return map;
+};
+
+const deleteShowtimesByMovieIds = async (db: D1Database, movieIds: number[]) => {
+    if (movieIds.length === 0) return;
+
+    for (const chunk of chunkArray(movieIds, SAFE_IN_CLAUSE_CHUNK)) {
+        const placeholders = buildPlaceholders(chunk.length);
+        await db.prepare(`DELETE FROM Showtimes WHERE movieId IN (${placeholders})`).bind(...chunk).run();
+    }
+};
+
 // MODIFIED: 全面更新 Schema
 const ensureSchema = async (db: D1Database) => {
     await db.batch([
@@ -311,22 +354,8 @@ async function processScraperResults(db: D1Database, data: IScraperResult) {
         const movieSourceIds = finalMovies.map(m => m.source_id).filter(Boolean);
         const theaterSourceIds = finalTheaters.map(t => t.source_id).filter(Boolean);
         
-        const movieSourceMap = new Map<string, number>();
-        const theaterSourceMap = new Map<string, number>();
-
-        if (movieSourceIds.length > 0) {
-            const { results } = await db.prepare(`SELECT id, source_id FROM Movies WHERE source_id IN (${movieSourceIds.map(() => '?').join(',')})`)
-                .bind(...movieSourceIds)
-                .all<{id: number, source_id: string}>();
-            results?.forEach(row => movieSourceMap.set(row.source_id, row.id));
-        }
-
-        if (theaterSourceIds.length > 0) {
-            const { results } = await db.prepare(`SELECT id, source_id FROM Theaters WHERE source_id IN (${theaterSourceIds.map(() => '?').join(',')})`)
-                .bind(...theaterSourceIds)
-                .all<{id: number, source_id: string}>();
-            results?.forEach(row => theaterSourceMap.set(row.source_id, row.id));
-        }
+        const movieSourceMap = await fetchSourceIdMap(db, 'Movies', movieSourceIds);
+        const theaterSourceMap = await fetchSourceIdMap(db, 'Theaters', theaterSourceIds);
         console.log(`Built maps. Movies: ${movieSourceMap.size}, Theaters: ${theaterSourceMap.size}`);
 
         // --- 4. 寫入 場次 (Showtimes) ---
@@ -335,10 +364,7 @@ async function processScraperResults(db: D1Database, data: IScraperResult) {
         console.log('Deleting old showtimes for relevant movies...');
         const movieIntegerIds = Array.from(movieSourceMap.values());
         if (movieIntegerIds.length > 0) {
-             const placeholders = movieIntegerIds.map(() => '?').join(',');
-             await db.prepare(`DELETE FROM Showtimes WHERE movieId IN (${placeholders})`)
-                 .bind(...movieIntegerIds)
-                 .run();
+             await deleteShowtimesByMovieIds(db, movieIntegerIds);
              console.log(`Deleted old showtimes for ${movieIntegerIds.length} movies.`);
         } else {
              await db.prepare('DELETE FROM Showtimes').run();

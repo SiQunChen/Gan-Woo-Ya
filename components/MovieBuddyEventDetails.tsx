@@ -4,6 +4,7 @@ import { getMovieBuddyEventById, getMovieById, getTheaterById } from '../service
 import Spinner from './Spinner';
 import { useUser } from '../contexts/UserContext';
 import { ClockIcon, FilmIcon, LocationIcon, StarIcon, UsersIcon } from './Icons';
+import { getLanguageLabel, getScreenTypeLabel } from '../utils/showtime';
 
 interface MovieBuddyEventDetailsProps {
   eventId: string;
@@ -69,9 +70,9 @@ const MovieBuddyEventDetails: React.FC<MovieBuddyEventDetailsProps> = ({ eventId
            <h3 className="text-xl font-bold text-white cursor-pointer hover:text-cyan-400" onClick={() => onSelectMovie(movie)}>{movie.title}</h3>
            <p className="text-gray-400">{movie.englishTitle}</p>
            <div className="mt-3 space-y-2 text-gray-300">
-               <div className="flex items-center gap-2"><ClockIcon className="w-5 h-5 text-cyan-400" /> <span>{event.showtime.time} ({event.showtime.language === 'English' ? '英文版' : '中文版'})</span></div>
+               <div className="flex items-center gap-2"><ClockIcon className="w-5 h-5 text-cyan-400" /> <span>{event.showtime.time} ({getLanguageLabel(event.showtime.language)})</span></div>
                <div className="flex items-center gap-2"><LocationIcon className="w-5 h-5 text-cyan-400" /> <span className="cursor-pointer hover:underline" onClick={() => onSelectTheater(theater)}>{theater.name}</span></div>
-               <div className="flex items-center gap-2"><FilmIcon className="w-5 h-5 text-cyan-400" /> <span>{event.showtime.screenType}</span></div>
+               <div className="flex items-center gap-2"><FilmIcon className="w-5 h-5 text-cyan-400" /> <span>{getScreenTypeLabel(event.showtime.screenType)}</span></div>
            </div>
         </div>
       </div>

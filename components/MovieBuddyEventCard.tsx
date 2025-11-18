@@ -1,6 +1,7 @@
 import React from 'react';
 import { MovieBuddyEvent, Movie } from '../types';
 import { UsersIcon, LocationIcon, ClockIcon } from './Icons';
+import { getLanguageLabel, getScreenTypeLabel } from '../utils/showtime';
 
 interface MovieBuddyEventCardProps {
   event: MovieBuddyEvent;
@@ -28,7 +29,7 @@ const MovieBuddyEventCard: React.FC<MovieBuddyEventCardProps> = ({ event, movie,
             </div>
             <div className="flex items-center gap-1.5">
               <LocationIcon className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate">{event.showtime.screenType} / {event.showtime.language === 'English' ? '英文' : '中文'}</span>
+              <span className="truncate">{getScreenTypeLabel(event.showtime.screenType)} / {getLanguageLabel(event.showtime.language)}</span>
             </div>
           </div>
         </div>

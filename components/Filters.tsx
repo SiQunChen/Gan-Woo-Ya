@@ -1,5 +1,6 @@
 import React from 'react';
 import { TimeOfDay, PriceSort } from '../types';
+import { getLanguageLabel, getScreenTypeLabel } from '../utils/showtime';
 
 interface FiltersProps {
   dateOptions: { value: string; label: string }[];
@@ -94,13 +95,21 @@ const Filters: React.FC<FiltersProps> = ({
       <div className="w-full sm:w-auto flex items-center">
         <label className="font-semibold text-white mr-3">影廳:</label>
         <select value={selectedScreen} onChange={e => setSelectedScreen(e.target.value)} className={baseSelectClass}>
-            {screenTypes.map(type => <option key={type} value={type}>{type === 'all' ? '全部' : type}</option>)}
+            {screenTypes.map(type => (
+              <option key={type} value={type}>
+                {type === 'all' ? '全部' : getScreenTypeLabel(type)}
+              </option>
+            ))}
         </select>
       </div>
        <div className="w-full sm:w-auto flex items-center">
         <label className="font-semibold text-white mr-3">語言:</label>
         <select value={selectedLang} onChange={e => setSelectedLang(e.target.value)} className={baseSelectClass}>
-            {languages.map(lang => <option key={lang} value={lang}>{lang === 'all' ? '全部' : lang}</option>)}
+            {languages.map(lang => (
+              <option key={lang} value={lang}>
+                {lang === 'all' ? '全部' : getLanguageLabel(lang)}
+              </option>
+            ))}
         </select>
       </div>
        <div className="w-full sm:w-auto flex items-center">

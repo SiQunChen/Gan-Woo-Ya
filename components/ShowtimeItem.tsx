@@ -1,6 +1,6 @@
 import React from 'react';
 import { Showtime } from '../types';
-import { formatShowtimeTime } from '../utils/showtime';
+import { formatShowtimeTime, getLanguageLabel, getScreenTypeLabel } from '../utils/showtime';
 
 interface ShowtimeItemProps {
   showtime: Showtime;
@@ -22,7 +22,7 @@ const ShowtimeItem: React.FC<ShowtimeItemProps> = ({ showtime }) => {
           </span>
       </div>
       <span className="text-xs text-gray-400 group-hover:text-white mt-1">
-        {showtime.language === 'English' ? '英文版' : '中文版'} / {showtime.screenType}
+  {getLanguageLabel(showtime.language)} / {getScreenTypeLabel(showtime.screenType)}
       </span>
     </a>
   );

@@ -29,14 +29,45 @@ export interface Theater {
   };
 }
 
+export type ScreenType =
+  | 'General'
+  | '3D'
+  | 'GC'
+  | 'IMAX'
+  | '4DX'
+  | 'TITAN'
+  | 'Dolby'
+  | 'Dolby Cinema'
+  | 'MUCROWN';
+
+export type ShowtimeLanguage =
+  | 'English'
+  | 'Chinese'
+  | 'Japanese'
+  | 'Korean'
+  | 'Thai'
+  | 'German'
+  | 'French'
+  | 'Italian'
+  | 'Spanish'
+  | 'Portuguese'
+  | 'Russian'
+  | 'Vietnamese'
+  | 'Hindi'
+  | 'Cantonese'
+  | 'Taiwanese'
+  | 'Hakka'
+  | 'Multiple'
+  | 'Mandarin';
+
 export interface Showtime {
   id: string;
   movieId: string;
   theaterId: string;
   bookingUrl: string;
   time: string; 
-  screenType: 'IMAX' | '4DX' | 'Dolby Cinema' | 'General' | 'TITAN';
-  language: 'English' | 'Chinese' | 'Japanese' | 'Korean';
+  screenType: ScreenType;
+  language: ShowtimeLanguage;
   price: number;
 }
 

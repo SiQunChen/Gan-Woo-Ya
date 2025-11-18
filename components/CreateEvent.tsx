@@ -3,6 +3,7 @@ import { Movie, Showtime, Theater } from '../types';
 import { getShowtimesByMovieId, getTheatersByIds, createMovieBuddyEvent } from '../services/api';
 import { useUser } from '../contexts/UserContext';
 import Spinner from './Spinner';
+import { getLanguageLabel, getScreenTypeLabel } from '../utils/showtime';
 
 interface CreateEventProps {
   movie: Movie;
@@ -145,7 +146,7 @@ const CreateEvent: React.FC<CreateEventProps> = ({ movie, onEventCreated, onCanc
                                     <input type="radio" name="selectedShowtimeId" value={showtime.id} checked={formData.selectedShowtimeId === showtime.id} onChange={handleShowtimeChange} className="sr-only" />
                                     <div className="font-bold text-lg">{showtime.time}</div>
                                     <div className="text-sm">${showtime.price}</div>
-                                    <div className="text-xs text-gray-300">{showtime.language.slice(0,1)} / {showtime.screenType}</div>
+                                    <div className="text-xs text-gray-300">{getLanguageLabel(showtime.language, 'short')} / {getScreenTypeLabel(showtime.screenType)}</div>
                                 </label>
                            ))}
                         </div>
